@@ -56,7 +56,7 @@ FLOCK/
 ├── 📁 algorithm/                   ← Python BFS/DFS visualiser
 │   ├── main.py                     ← Tkinter GUI application
 │   ├── algorithms.py               ← BFS + DFS implementations
-│   └── .py                 ← Floor graph (nodes, edges, exits)
+│   └── building.py                 ← Floor graph (nodes, edges, exits)
 │
 ├── 📁 mvp/                         ← Hardware prototype
 │   ├── 📁 tinkercad/               ← Circuit design (BLE beacon simulation)
