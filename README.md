@@ -124,11 +124,6 @@ visually demonstrates the BFS pathfinding engine on a sample office floor.
 - Time complexity: **O(N + E)**  ·  Space complexity: **O(N + E)**
 - Used for primary evacuation routing
 
-**DFS — Depth-First Search** (`algorithms.py`)
-- Finds **all possible paths** from the user's position to any exit
-- Time complexity: **O(N + E)**  ·  Space complexity: **O(N)**
-- Used for route analysis and fallback discovery
-
 ### Requirements
 
 ```
