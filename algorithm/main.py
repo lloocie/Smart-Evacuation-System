@@ -1,472 +1,423 @@
 import tkinter as tk
 from tkinter import font as tkfont
-from building import NODES, EDGES, EXITS, BUILDING_NAME
-from algorithms import build_graph, bfs, dfs
+from building import NODES, EDGES, EDGES_WEIGHTED, EXITS, BUILDING_NAME
+from algorithms import build_weighted_graph, dijkstra_shortest_path
 
-CANVAS_W = 760
-CANVAS_H = 580
-R        = 26   # node half-height (pill shape)
-RX       = 48   # node half-width  (pill shape)
+# ==================== LARGER CANVAS ====================
+CANVAS_W = 1000
+CANVAS_H = 800
+RX = 50
+RY = 28
 
-GRAPH = build_graph(EDGES)
+# SIMPLIFIED HIGH-CONTRAST COLORS
+COLORS = {
+    'bg':            '#2c3e50',
+    'canvas_bg':     '#f0f0f0',
+    'sidebar_bg':    '#ffffff',
+    'sidebar_border': '#b0b0b0',
+    'edge':          '#888888',
+    'edge_path':     '#ff8c00',
+    'edge_blocked':  '#ff0000',
+    'node_fill':     '#ffffff',
+    'node_border':   '#333333',
+    'node_text':     '#000000',
+    'path_border':   '#ff8c00',
+    'exit_fill':     '#2ecc71',
+    'exit_text':     '#ffffff',
+    'pin_red':       '#e74c3c',
+    'pin_glow':      '#ffcccc',
+    'incident_fill': '#ffdddd',
+    'incident_badge':'#ff0000',
+    'incident_text': '#ff0000',
+    'warn_bg':       '#fff3cd',
+    'warn_border':   '#ffc107',
+    'warn_text':     '#856404',
+    'btn_primary':   '#ff8c00',
+    'btn_primary_hover': '#e07c00',
+    'btn_primary_text':  '#ffffff',
+    'btn_danger':    '#ff0000',
+    'btn_danger_hover': '#cc0000',
+    'btn_danger_text':  '#ffffff',
+    'btn_secondary': '#6c757d',
+    'btn_secondary_hover': '#5a6268',
+    'btn_secondary_text': '#ffffff',
+    'log_success':   '#ff8c00',
+    'log_warn':      '#ff0000',
+    'log_info':      '#6c757d',
+    'route_header':  '#6c757d',
+    'route_text':    '#000000',
+    'step_num_bg':   '#dddddd',
+    'step_num_fg':   '#000000',
+    'exit_green':    '#2ecc71',
+}
 
-# ── Palette — matches the screenshot ─────────────────────────────
-COL_BG          = "#f7f7f5"      # off-white canvas
-COL_PANEL_BG    = "#ffffff"
-COL_EDGE        = "#cccccc"      # default grey edge
-COL_EDGE_PATH   = "#e07820"      # orange active path
-COL_EDGE_BLOCK  = "#e03030"      # red dashed blocked
-
-COL_NODE_FILL   = "#ffffff"      # normal room fill
-COL_NODE_BD     = "#cccccc"      # normal room border
-COL_NODE_TEXT   = "#222222"
-
-COL_PATH_FILL   = "#ffffff"
-COL_PATH_BD     = "#e07820"      # orange border on path nodes
-
-COL_EXIT_FILL   = "#4a9e5c"      # green pill
-COL_EXIT_TEXT   = "#ffffff"
-
-COL_PIN_RED     = "#d93025"      # "You" teardrop
-COL_PIN_GLOW    = "#f8c8c8"      # soft red glow circle
-
-COL_INCIDENT_FILL = "#f0e0e0"    # pale red for blocked node
-COL_INCIDENT_BD   = "#cccccc"
-COL_INCIDENT_BADGE= "#d93025"    # red badge circle
-
-COL_WARN_BG     = "#fdf3e3"      # amber warning bar
-COL_WARN_BORDER = "#e8a020"
-COL_WARN_TEXT   = "#a06010"
-
-COL_PANEL_DIV   = "#eeeeee"
-COL_ROUTE_HDR   = "#999999"
-COL_ROUTE_TEXT  = "#111111"
-COL_STEP_NUM_BG = "#e0e0e0"
-COL_STEP_NUM_FG = "#666666"
-COL_EXIT_GREEN  = "#4a9e5c"
-COL_SWIPE_TEXT  = "#aaaaaa"
-COL_MUTED       = "#999999"
-
-# Sidebar
-COL_SIDE_BG     = "#ffffff"
-COL_SIDE_BD     = "#e8e8e8"
-COL_BTN_BFS_BG  = "#e07820"
-COL_BTN_BFS_FG  = "#ffffff"
-COL_BTN_INC_BG  = "#d93025"
-COL_BTN_INC_FG  = "#ffffff"
-COL_BTN_RST_BG  = "#eeeeee"
-COL_BTN_RST_FG  = "#555555"
+# Build weighted graph from explicit distances
+GRAPH_ADJ, EDGE_WEIGHTS = build_weighted_graph(EDGES_WEIGHTED)
 
 
-class App:
+class EvacuationApp:
     def __init__(self, root):
-        self.root       = root
-        self.pin        = None
-        self.incidents  = set()   # blocked node ids
-        self.bfs_path   = []
+        self.root = root
+        self.pin = None
+        self.incidents = set()
+        self.current_path = None
+        self.current_distance = None
 
-        root.title(BUILDING_NAME)
-        root.configure(bg=COL_BG)
-        root.resizable(False, False)
-
+        self._setup_window()
         self._setup_fonts()
         self._build_ui()
         self._draw()
+        self._update_all()
 
-    # ── Fonts ─────────────────────────────────────────────────────
+    def _setup_window(self):
+        self.root.title(f"{BUILDING_NAME} – Evacuation Planner (weighted Dijkstra)")
+        self.root.configure(bg=COLORS['bg'])
+        self.root.geometry("1260x950")
+        self.root.resizable(False, False)
+
     def _setup_fonts(self):
-        fam = next((f for f in ("SF Pro Display", "Helvetica Neue", "Helvetica")
+        fam = next((f for f in ("Segoe UI", "Helvetica Neue", "Helvetica")
                     if f in tkfont.families()), "Helvetica")
-        self.f_node    = tkfont.Font(family=fam, size=10)
-        self.f_exit    = tkfont.Font(family=fam, size=10, weight="bold")
-        self.f_pin_lbl = tkfont.Font(family=fam, size=8,  weight="bold")
-        self.f_badge   = tkfont.Font(family=fam, size=9,  weight="bold")
-        self.f_blocked = tkfont.Font(family=fam, size=8)
-        self.f_warn    = tkfont.Font(family=fam, size=10, weight="bold")
-        self.f_hdr     = tkfont.Font(family=fam, size=8,  weight="bold")
-        self.f_route   = tkfont.Font(family=fam, size=11, weight="bold")
-        self.f_step    = tkfont.Font(family=fam, size=10)
-        self.f_finish  = tkfont.Font(family=fam, size=10, weight="bold")
-        self.f_num     = tkfont.Font(family=fam, size=8,  weight="bold")
-        self.f_swipe   = tkfont.Font(family=fam, size=9)
-        self.f_side_hd = tkfont.Font(family=fam, size=10, weight="bold")
-        self.f_side    = tkfont.Font(family=fam, size=9)
-        self.f_btn     = tkfont.Font(family=fam, size=9,  weight="bold")
+        self.fonts = {
+            'node':      tkfont.Font(family=fam, size=10),
+            'exit':      tkfont.Font(family=fam, size=10, weight="bold"),
+            'pin_label': tkfont.Font(family=fam, size=8, weight="bold"),
+            'badge':     tkfont.Font(family=fam, size=9, weight="bold"),
+            'blocked':   tkfont.Font(family=fam, size=8),
+            'warning':   tkfont.Font(family=fam, size=10, weight="bold"),
+            'header':    tkfont.Font(family=fam, size=9, weight="bold"),
+            'route':     tkfont.Font(family=fam, size=11, weight="bold"),
+            'step':      tkfont.Font(family=fam, size=10),
+            'finish':    tkfont.Font(family=fam, size=10, weight="bold"),
+            'number':    tkfont.Font(family=fam, size=8, weight="bold"),
+            'title':     tkfont.Font(family=fam, size=12, weight="bold"),
+            'sidebar':   tkfont.Font(family=fam, size=9),
+            'button':    tkfont.Font(family=fam, size=9, weight="bold"),
+            'distance':  tkfont.Font(family=fam, size=9, weight="bold"),
+        }
 
-    # ── UI ────────────────────────────────────────────────────────
+    # ---------- UI Construction ----------
     def _build_ui(self):
-        # ── Warning bar ───────────────────────────────────────────
-        self.warn_outer = tk.Frame(self.root, bg=COL_WARN_BG,
-                                   highlightbackground=COL_WARN_BORDER,
+        self.warn_frame = tk.Frame(self.root, bg=COLORS['warn_bg'],
+                                   highlightbackground=COLORS['warn_border'],
                                    highlightthickness=1)
-        self.warn_outer.pack(fill="x")
-        self.warn_label = tk.Label(
-            self.warn_outer,
-            text="Click a room to drop your pin, then press  Run BFS",
-            bg=COL_WARN_BG, fg=COL_WARN_TEXT,
-            font=self.f_warn, anchor="w", padx=16, pady=8
-        )
+        self.warn_frame.pack(fill="x")
+        self.warn_label = tk.Label(self.warn_frame, text="",
+                                   bg=COLORS['warn_bg'], fg=COLORS['warn_text'],
+                                   font=self.fonts['warning'], anchor="w",
+                                   padx=16, pady=8)
         self.warn_label.pack(fill="x")
 
-        # ── Main row: canvas + sidebar ────────────────────────────
-        main_row = tk.Frame(self.root, bg=COL_BG)
+        main_row = tk.Frame(self.root, bg=COLORS['bg'])
         main_row.pack(fill="both", expand=True)
 
-        # Canvas
-        self.canvas = tk.Canvas(
-            main_row, width=CANVAS_W, height=CANVAS_H,
-            bg=COL_BG, highlightthickness=0
-        )
-        self.canvas.pack(side="left")
-        self.canvas.bind("<Button-1>", self._on_click)
+        self.canvas = tk.Canvas(main_row, width=CANVAS_W, height=CANVAS_H,
+                                bg=COLORS['canvas_bg'], highlightthickness=0)
+        self.canvas.pack(side="left", padx=10, pady=10)
+        self.canvas.bind("<Button-1>", self._on_canvas_click)
 
-        # Sidebar
-        sidebar = tk.Frame(main_row, bg=COL_SIDE_BG, width=200,
-                           highlightbackground=COL_SIDE_BD,
+        self._build_sidebar(main_row)
+        self._build_bottom_panel()
+
+    def _build_sidebar(self, parent):
+        sidebar = tk.Frame(parent, bg=COLORS['sidebar_bg'], width=260,
+                           highlightbackground=COLORS['sidebar_border'],
                            highlightthickness=1)
         sidebar.pack(side="right", fill="y")
         sidebar.pack_propagate(False)
 
         tk.Label(sidebar, text=BUILDING_NAME,
-                 bg=COL_SIDE_BG, fg="#333333",
-                 font=self.f_side_hd, wraplength=180,
-                 justify="left", anchor="w").pack(anchor="w", padx=16, pady=(18, 4))
+                 bg=COLORS['sidebar_bg'], fg='#000000',
+                 font=self.fonts['title'], anchor="w").pack(anchor="w", padx=16, pady=(20, 8))
 
         tk.Label(sidebar,
-                 text="① Click a room\n② Run BFS for shortest path\n③ Add Incident to block a room",
-                 bg=COL_SIDE_BG, fg=COL_MUTED,
-                 font=self.f_side, justify="left", anchor="w").pack(anchor="w", padx=16, pady=(0, 14))
+                 text="1. Click a room\n2. Block room (if needed)\n3. Shortest PHYSICAL path",
+                 bg=COLORS['sidebar_bg'], fg='#333333',
+                 font=self.fonts['sidebar'], justify="left", anchor="w").pack(anchor="w", padx=16, pady=(0, 20))
 
-        tk.Frame(sidebar, bg=COL_SIDE_BD, height=1).pack(fill="x", padx=16, pady=(0, 12))
+        tk.Frame(sidebar, bg=COLORS['sidebar_border'], height=1).pack(fill="x", padx=16, pady=(0, 16))
 
-        def pill_btn(text, cmd, bg, fg):
-            tk.Button(sidebar, text=text, command=cmd,
-                      bg=bg, fg=fg, activebackground=bg, activeforeground=fg,
-                      font=self.f_btn, relief="flat", bd=0,
-                      cursor="hand2", padx=0, pady=8,
-                      width=18).pack(padx=16, pady=3, fill="x")
+        self._add_button(sidebar, "▶  FIND ROUTE", self._manual_recalc,
+                         COLORS['btn_primary'], COLORS['btn_primary_hover'], COLORS['btn_primary_text'])
+        self._add_button(sidebar, "⚠  BLOCK ROOM", self._toggle_incident,
+                         COLORS['btn_danger'], COLORS['btn_danger_hover'], COLORS['btn_danger_text'])
+        self._add_button(sidebar, "↺  RESET", self._reset,
+                         COLORS['btn_secondary'], COLORS['btn_secondary_hover'], COLORS['btn_secondary_text'])
 
-        pill_btn("▶  Run BFS",        self._run_bfs,      COL_BTN_BFS_BG, COL_BTN_BFS_FG)
-        pill_btn("⚠  Add Incident",   self._add_incident, COL_BTN_INC_BG, COL_BTN_INC_FG)
-        pill_btn("↺  Reset",          self._reset,        COL_BTN_RST_BG, COL_BTN_RST_FG)
+        tk.Frame(sidebar, bg=COLORS['sidebar_border'], height=1).pack(fill="x", padx=16, pady=(16, 12))
 
-        tk.Frame(sidebar, bg=COL_SIDE_BD, height=1).pack(fill="x", padx=16, pady=(12, 8))
+        log_frame = tk.Frame(sidebar, bg=COLORS['sidebar_bg'])
+        log_frame.pack(fill="both", expand=True, padx=16, pady=(0, 16))
+        tk.Label(log_frame, text="ACTIVITY LOG", bg=COLORS['sidebar_bg'],
+                 fg='#333333', font=self.fonts['header'], anchor="w").pack(fill="x")
 
-        self.log = tk.Text(sidebar, bg="#fafafa", fg="#555555",
-                           font=self.f_side, relief="flat", bd=0,
+        self.log = tk.Text(log_frame, bg='#f8f8f8', fg='#000000',
+                           font=self.fonts['sidebar'], relief="flat", bd=0,
                            wrap="word", state="disabled", cursor="arrow",
-                           highlightthickness=0)
-        self.log.pack(fill="both", expand=True, padx=16, pady=(0, 16))
-        self.log.tag_config("path",  foreground=COL_BTN_BFS_BG)
-        self.log.tag_config("warn",  foreground=COL_BTN_INC_BG)
-        self.log.tag_config("muted", foreground=COL_MUTED)
+                           highlightthickness=1, highlightbackground=COLORS['sidebar_border'],
+                           height=10)
+        self.log.pack(fill="both", expand=True, pady=(4, 0))
+        self.log.tag_config("success", foreground=COLORS['log_success'])
+        self.log.tag_config("warn", foreground=COLORS['log_warn'])
+        self.log.tag_config("info", foreground=COLORS['log_info'])
 
-        self._log([("Click any room to place your pin.\n", "muted")])
+        self._log("Ready. Click a room.", "info")
 
-        # ── Bottom panel ──────────────────────────────────────────
-        self.panel = tk.Frame(self.root, bg=COL_PANEL_BG,
-                              highlightbackground=COL_PANEL_DIV,
+    def _add_button(self, parent, text, command, bg, hover_bg, fg):
+        btn = tk.Button(parent, text=text, command=command,
+                        bg=bg, fg=fg, activebackground=hover_bg,
+                        activeforeground=fg, font=self.fonts['button'],
+                        relief="raised", bd=1, cursor="hand2",
+                        padx=0, pady=10, width=24)
+        btn.pack(padx=16, pady=6, fill="x")
+        btn.bind("<Enter>", lambda e: btn.config(bg=hover_bg, relief="sunken"))
+        btn.bind("<Leave>", lambda e: btn.config(bg=bg, relief="raised"))
+        return btn
+
+    def _build_bottom_panel(self):
+        self.panel = tk.Frame(self.root, bg=COLORS['sidebar_bg'],
+                              highlightbackground=COLORS['sidebar_border'],
                               highlightthickness=1)
         self.panel.pack(fill="x")
 
-        # handle
-        tk.Frame(self.panel, bg="#dddddd", height=4, width=36).pack(pady=(8, 0))
+        tk.Frame(self.panel, bg='#cccccc', height=3, width=50).pack(pady=(6, 0))
 
-        # EVACUATION ROUTE header
-        hdr_row = tk.Frame(self.panel, bg=COL_PANEL_BG)
-        hdr_row.pack(fill="x", padx=20, pady=(6, 2))
-        tk.Label(hdr_row, text="EVACUATION ROUTE",
-                 bg=COL_PANEL_BG, fg=COL_ROUTE_HDR,
-                 font=self.f_hdr).pack(side="left")
+        hdr = tk.Frame(self.panel, bg=COLORS['sidebar_bg'])
+        hdr.pack(fill="x", padx=20, pady=(8, 4))
+        tk.Label(hdr, text="EVACUATION ROUTE (shortest physical distance)",
+                 bg=COLORS['sidebar_bg'], fg=COLORS['route_header'],
+                 font=self.fonts['header']).pack(side="left")
+        self.distance_label = tk.Label(hdr, text="", bg=COLORS['sidebar_bg'],
+                                       fg=COLORS['btn_primary'], font=self.fonts['distance'])
+        self.distance_label.pack(side="right")
 
-        # Breadcrumb
-        self.route_lbl = tk.Label(
-            self.panel, text="—",
-            bg=COL_PANEL_BG, fg=COL_ROUTE_TEXT,
-            font=self.f_route, wraplength=700,
-            justify="left", anchor="w", padx=20
-        )
+        self.route_lbl = tk.Label(self.panel, text="—", bg=COLORS['sidebar_bg'],
+                                  fg=COLORS['route_text'], font=self.fonts['route'],
+                                  anchor="w", padx=20)
         self.route_lbl.pack(fill="x")
 
-        tk.Frame(self.panel, bg=COL_PANEL_DIV, height=1).pack(fill="x", padx=20, pady=5)
+        tk.Frame(self.panel, bg=COLORS['sidebar_border'], height=1).pack(fill="x", padx=20, pady=6)
 
-        self.steps_frame = tk.Frame(self.panel, bg=COL_PANEL_BG)
+        self.steps_frame = tk.Frame(self.panel, bg=COLORS['sidebar_bg'])
         self.steps_frame.pack(fill="x", padx=20)
 
-        # bottom warning + Finish row
-        bot_row = tk.Frame(self.panel, bg=COL_PANEL_BG)
-        bot_row.pack(fill="x", padx=20, pady=(4, 2))
-        self.bot_warn_lbl = tk.Label(bot_row, text="",
-                                     bg=COL_PANEL_BG, fg=COL_BTN_INC_BG,
-                                     font=self.f_step, anchor="w")
-        self.bot_warn_lbl.pack(side="left")
-        tk.Label(bot_row, text="Finish", bg=COL_PANEL_BG,
-                 fg=COL_EXIT_GREEN, font=self.f_finish).pack(side="right")
+        bot = tk.Frame(self.panel, bg=COLORS['sidebar_bg'])
+        bot.pack(fill="x", padx=20, pady=(8, 10))
+        self.block_warn = tk.Label(bot, text="", bg=COLORS['sidebar_bg'],
+                                   fg=COLORS['btn_danger'], font=self.fonts['step'])
+        self.block_warn.pack(side="left")
+        tk.Label(bot, text="EXIT", bg=COLORS['sidebar_bg'],
+                 fg=COLORS['exit_green'], font=self.fonts['finish']).pack(side="right")
 
-        tk.Label(self.panel, text="Swipe up for directions  ∧",
-                 bg=COL_PANEL_BG, fg=COL_SWIPE_TEXT,
-                 font=self.f_swipe).pack(pady=(2, 10))
-
-    # ── Drawing ───────────────────────────────────────────────────
+    # ---------- Drawing ----------
     def _draw(self):
         self.canvas.delete("all")
 
-        path_edge_set = set()
-        for i in range(len(self.bfs_path) - 1):
-            a, b = self.bfs_path[i], self.bfs_path[i+1]
-            path_edge_set.add((min(a, b), max(a, b)))
+        path_edges = set()
+        if self.current_path:
+            for i in range(len(self.current_path) - 1):
+                a, b = self.current_path[i], self.current_path[i+1]
+                path_edges.add((min(a, b), max(a, b)))
 
-        # ── Edges ─────────────────────────────────────────────────
-        for a, b in EDGES:
+        for a, b in EDGES:   # EDGES is unweighted list for drawing
             x1, y1 = NODES[a][1], NODES[a][2]
             x2, y2 = NODES[b][1], NODES[b][2]
             key = (min(a, b), max(a, b))
-            a_inc = a in self.incidents
-            b_inc = b in self.incidents
+            a_block = a in self.incidents
+            b_block = b in self.incidents
 
-            if key in path_edge_set and not a_inc and not b_inc:
-                self.canvas.create_line(x1, y1, x2, y2,
-                                        fill=COL_EDGE_PATH, width=3)
-            elif a_inc or b_inc:
-                self.canvas.create_line(x1, y1, x2, y2,
-                                        fill=COL_EDGE_BLOCK, width=2,
-                                        dash=(6, 4))
+            if key in path_edges and not a_block and not b_block:
+                self.canvas.create_line(x1, y1, x2, y2, fill=COLORS['edge_path'], width=4)
+            elif a_block or b_block:
+                self.canvas.create_line(x1, y1, x2, y2, fill=COLORS['edge_blocked'], width=2, dash=(6, 4))
             else:
-                self.canvas.create_line(x1, y1, x2, y2,
-                                        fill=COL_EDGE, width=2)
+                self.canvas.create_line(x1, y1, x2, y2, fill=COLORS['edge'], width=2)
 
-        # ── Nodes ─────────────────────────────────────────────────
         for nid, (label, x, y) in NODES.items():
-            is_exit    = nid in EXITS
-            is_pin     = nid == self.pin
-            is_inc     = nid in self.incidents
-            on_path    = nid in self.bfs_path
+            is_exit = nid in EXITS
+            is_pin = nid == self.pin
+            is_inc = nid in self.incidents
+            on_path = self.current_path and nid in self.current_path
 
-            rx = RX + 6 if is_exit else RX
-            ry = R  + 4 if is_exit else R
-
-            # Choose colours
             if is_exit:
-                fill, bd, tc = COL_EXIT_FILL, COL_EXIT_FILL, COL_EXIT_TEXT
+                fill, outline, tc = COLORS['exit_fill'], COLORS['exit_fill'], COLORS['exit_text']
             elif is_inc:
-                fill, bd, tc = COL_INCIDENT_FILL, COL_INCIDENT_BD, "#aa3333"
+                fill, outline, tc = COLORS['incident_fill'], COLORS['incident_badge'], COLORS['incident_text']
             elif on_path:
-                fill, bd, tc = COL_PATH_FILL, COL_PATH_BD, COL_NODE_TEXT
-            elif is_pin:
-                fill, bd, tc = COL_NODE_FILL, "#e07820", COL_NODE_TEXT
+                fill, outline, tc = COLORS['node_fill'], COLORS['path_border'], COLORS['node_text']
             else:
-                fill, bd, tc = COL_NODE_FILL, COL_NODE_BD, COL_NODE_TEXT
+                fill, outline, tc = COLORS['node_fill'], COLORS['node_border'], COLORS['node_text']
 
-            # Pill shape via rounded rectangle (simulate with oval + rect)
-            self._pill(x, y, rx, ry, fill=fill, outline=bd, width=2)
+            self._draw_pill(x, y, RX, RY, fill=fill, outline=outline, width=2)
 
-            # Label
-            font = self.f_exit if is_exit else self.f_node
+            font = self.fonts['exit'] if is_exit else self.fonts['node']
             self.canvas.create_text(x, y, text=label, fill=tc, font=font)
 
-            # Incident badge — red circle with ✕ top-right
             if is_inc:
-                bx, by = x + rx - 4, y - ry + 4
+                bx, by = x + RX - 4, y - RY + 4
                 self.canvas.create_oval(bx-13, by-13, bx+13, by+13,
-                                        fill=COL_INCIDENT_BADGE,
-                                        outline="white", width=2)
-                self.canvas.create_text(bx, by, text="✕",
-                                        fill="white", font=self.f_badge)
-                # "Blocked" label below node
-                self.canvas.create_text(x, y + ry + 14,
-                                        text="⚠ Blocked",
-                                        fill=COL_INCIDENT_BADGE,
-                                        font=self.f_blocked)
-                # Incident glow behind node
-                self.canvas.tag_lower(
-                    self.canvas.create_oval(
-                        x - rx - 14, y - ry - 14,
-                        x + rx + 14, y + ry + 14,
-                        fill="#fce8e8", outline=""
-                    )
-                )
+                                        fill=COLORS['incident_badge'], outline='white', width=2)
+                self.canvas.create_text(bx, by, text="✕", fill='white', font=self.fonts['badge'])
+                self.canvas.create_text(x, y + RY + 16, text="BLOCKED",
+                                        fill=COLORS['incident_text'], font=self.fonts['blocked'])
 
-            # "You" pin marker
             if is_pin:
-                # Glow
-                self.canvas.create_oval(x-22, y-ry-40, x+22, y-ry+6,
-                                        fill=COL_PIN_GLOW, outline="")
-                # Teardrop body
-                self.canvas.create_oval(x-14, y-ry-42, x+14, y-ry-16,
-                                        fill=COL_PIN_RED, outline="white", width=2)
-                # Pointer triangle
-                self.canvas.create_polygon(
-                    x, y-ry-4, x-7, y-ry-18, x+7, y-ry-18,
-                    fill=COL_PIN_RED, outline=""
-                )
-                # "You" text
-                self.canvas.create_text(x, y-ry-29,
-                                        text="You", fill="white",
-                                        font=self.f_pin_lbl)
+                self.canvas.create_oval(x-24, y-RY-44, x+24, y-RY+8,
+                                        fill=COLORS['pin_glow'], outline="")
+                self.canvas.create_oval(x-16, y-RY-46, x+16, y-RY-18,
+                                        fill=COLORS['pin_red'], outline='white', width=2)
+                self.canvas.create_polygon(x, y-RY-4, x-8, y-RY-20, x+8, y-RY-20,
+                                           fill=COLORS['pin_red'], outline="")
+                self.canvas.create_text(x, y-RY-31, text="YOU", fill='white',
+                                        font=self.fonts['pin_label'])
 
-    def _pill(self, cx, cy, rx, ry, **kw):
-        """Draw a rounded-rectangle (pill) on the canvas."""
+    def _draw_pill(self, cx, cy, rx, ry, **kwargs):
         r = min(rx, ry)
-        x0, y0, x1, y1 = cx-rx, cy-ry, cx+rx, cy+ry
-        pts = [
-            x0+r, y0,  x1-r, y0,
-            x1,   y0,  x1,   y0+r,
-            x1,   y1-r,x1,   y1,
-            x1-r, y1,  x0+r, y1,
-            x0,   y1,  x0,   y1-r,
-            x0,   y0+r,x0,   y0,
-            x0+r, y0,
-        ]
-        self.canvas.create_polygon(pts, smooth=True, **kw)
+        x0, y0, x1, y1 = cx - rx, cy - ry, cx + rx, cy + ry
+        pts = [x0 + r, y0, x1 - r, y0, x1, y0, x1, y0 + r,
+               x1, y1 - r, x1, y1, x1 - r, y1, x0 + r, y1,
+               x0, y1, x0, y1 - r, x0, y0 + r, x0, y0, x0 + r, y0]
+        self.canvas.create_polygon(pts, smooth=True, **kwargs)
 
-    # ── Interaction ───────────────────────────────────────────────
-    def _on_click(self, event):
+    # ---------- Core Logic ----------
+    def _on_canvas_click(self, event):
         for nid, (_, x, y) in NODES.items():
-            if abs(event.x - x) <= RX + 8 and abs(event.y - y) <= R + 8:
+            if abs(event.x - x) <= RX + 10 and abs(event.y - y) <= RY + 10:
                 if nid != self.pin:
-                    self.pin      = nid
-                    self.bfs_path = []
+                    self.pin = nid
+                    self._calculate_path()
                     self._draw()
-                    self._refresh_panel()
-                    name = NODES[nid][0]
-                    self._log([("Pin → ", "muted"), (f"{name}\n", "path"),
-                               ("Press Run BFS.\n", "muted")])
+                    self._update_all()
+                    self._log(f"📍 Location: {NODES[nid][0]}", "success")
                 return
 
-    def _run_bfs(self):
+    def _calculate_path(self):
         if self.pin is None:
-            self._log([("Drop your pin first.\n", "warn")]); return
-
-        safe_edges = [(a, b) for a, b in EDGES
-                      if a not in self.incidents and b not in self.incidents]
-        from algorithms import build_graph as bg
-        g = bg(safe_edges)
-        path = bfs(self.pin, g, EXITS)
-        self.bfs_path = path or []
-        self._draw()
-        self._refresh_panel(path)
-
-        if path:
-            names = [NODES[n][0] for n in path]
-            self._log([("BFS shortest path\n", "path")] +
-                      [(f"  {n}\n", None) for n in names] +
-                      [(f"\n{len(path)-1} step(s) to safety.\n", "path")])
+            self.current_path = None
+            self.current_distance = None
         else:
-            self._log([("No exit reachable!\n", "warn")])
+            self.current_path = dijkstra_shortest_path(
+                self.pin, GRAPH_ADJ, EDGE_WEIGHTS, EXITS, self.incidents
+            )
+            if self.current_path:
+                total = 0.0
+                for i in range(len(self.current_path) - 1):
+                    a, b = self.current_path[i], self.current_path[i+1]
+                    key = (min(a, b), max(a, b))
+                    total += EDGE_WEIGHTS.get(key, 0.0)
+                self.current_distance = total
+            else:
+                self.current_distance = None
+        self._update_all()
 
-    def _add_incident(self):
+    def _toggle_incident(self):
         if self.pin is None:
-            self._log([("Select a room first.\n", "warn")]); return
+            self._log("Select a room first.", "warn")
+            return
         if self.pin in EXITS:
-            self._log([("Cannot block an EXIT.\n", "warn")]); return
+            self._log("Cannot block an exit.", "warn")
+            return
         if self.pin in self.incidents:
             self.incidents.discard(self.pin)
-            name = NODES[self.pin][0]
-            self._log([("Incident cleared: ", "muted"), (f"{name}\n", "path")])
+            self._log(f"✓ Cleared: {NODES[self.pin][0]}", "success")
         else:
             self.incidents.add(self.pin)
-            name = NODES[self.pin][0]
-            self._log([("Incident added: ", "muted"), (f"{name}\n", "warn"),
-                       ("Run BFS to reroute.\n", "muted")])
-        self.bfs_path = []
+            self._log(f"⚠ Blocked: {NODES[self.pin][0]}", "warn")
+        self._calculate_path()
         self._draw()
-        self._refresh_panel()
+        self._update_all()
+
+    def _manual_recalc(self):
+        if self.pin is None:
+            self._log("No location selected.", "warn")
+            return
+        self._calculate_path()
+        self._draw()
+        self._update_all()
+        self._log("Route recalculated (weighted Dijkstra).", "success")
 
     def _reset(self):
-        self.pin       = None
-        self.incidents = set()
-        self.bfs_path  = []
+        self.pin = None
+        self.incidents.clear()
+        self.current_path = None
+        self.current_distance = None
         self._draw()
-        self._refresh_panel()
-        self._log([("Reset. Click a room to begin.\n", "muted")])
+        self._update_all()
+        self._log("Reset. Click a room.", "info")
 
-    # ── Bottom panel ──────────────────────────────────────────────
-    def _refresh_panel(self, path=None):
+    # ---------- UI Updates ----------
+    def _update_all(self):
+        self._update_warning_bar()
+        self._update_bottom_panel()
+
+    def _update_warning_bar(self):
+        if self.incidents:
+            blocked = ", ".join(NODES[n][0] for n in self.incidents)
+            self.warn_label.config(text=f"⚠ BLOCKED: {blocked}")
+        elif self.pin is None:
+            self.warn_label.config(text="📍 Click any room")
+        else:
+            self.warn_label.config(text=f"📍 {NODES[self.pin][0]} – route ready")
+
+    def _update_bottom_panel(self):
         for w in self.steps_frame.winfo_children():
             w.destroy()
 
-        # Warning bar
-        if self.incidents:
-            inames = ", ".join(NODES[n][0] for n in self.incidents)
-            self.warn_label.config(
-                text=f"⚠  {inames} blocked — Find alternate route"
-            )
-        elif self.pin is None:
-            self.warn_label.config(
-                text="Click a room to drop your pin, then press  Run BFS"
-            )
-        else:
-            self.warn_label.config(
-                text=f"📍  {NODES[self.pin][0]} selected — press Run BFS to find exit"
-            )
-
-        if not self.bfs_path:
+        if not self.current_path:
             self.route_lbl.config(text="—")
-            self.bot_warn_lbl.config(text="")
+            self.distance_label.config(text="")
+            self.block_warn.config(text="")
             return
 
-        names = [NODES[n][0] for n in self.bfs_path]
+        names = [NODES[n][0] for n in self.current_path]
         self.route_lbl.config(text="  →  ".join(names))
 
-        # Step instructions
-        steps = names[1:]
-        step_texts = []
-        for i, s in enumerate(steps):
-            if i == 0:
-                step_texts.append(f"Go to {s}")
-            elif i == len(steps) - 1:
-                step_texts.append(None)  # handled separately as "Exit through"
-            elif "Stairs" in s:
-                step_texts.append(f"Take the stairs")
-            elif "Hallway" in s or "Hall" in s:
-                step_texts.append(f"Continue straight")
-            else:
-                step_texts.append(f"Proceed to {s}")
+        if self.current_distance is not None:
+            self.distance_label.config(text=f"{self.current_distance:.1f} m")
+        else:
+            self.distance_label.config(text="")
 
-        for i, (txt, node_name) in enumerate(zip(step_texts, steps)):
-            row = tk.Frame(self.steps_frame, bg=COL_PANEL_BG, pady=2)
+        steps = names[1:]
+        for i, step in enumerate(steps):
+            row = tk.Frame(self.steps_frame, bg=COLORS['sidebar_bg'], pady=2)
             row.pack(fill="x")
 
-            nc = tk.Canvas(row, width=22, height=22,
-                           bg=COL_PANEL_BG, highlightthickness=0)
-            nc.pack(side="left", padx=(0, 10))
-            nc.create_oval(1, 1, 21, 21, fill=COL_STEP_NUM_BG, outline="")
-            nc.create_text(11, 11, text=str(i+1),
-                           fill=COL_STEP_NUM_FG, font=self.f_num)
+            num = tk.Canvas(row, width=22, height=22, bg=COLORS['sidebar_bg'], highlightthickness=0)
+            num.pack(side="left", padx=(0, 10))
+            num.create_oval(1, 1, 21, 21, fill=COLORS['step_num_bg'], outline="")
+            num.create_text(11, 11, text=str(i+1), fill=COLORS['step_num_fg'], font=self.fonts['number'])
 
             if i == len(steps) - 1:
-                f = tk.Frame(row, bg=COL_PANEL_BG)
-                f.pack(side="left")
-                tk.Label(f, text="Exit through ",
-                         bg=COL_PANEL_BG, fg=COL_NODE_TEXT,
-                         font=self.f_step).pack(side="left")
-                tk.Label(f, text=node_name,
-                         bg=COL_PANEL_BG, fg=COL_EXIT_GREEN,
-                         font=self.f_finish).pack(side="left")
+                frame = tk.Frame(row, bg=COLORS['sidebar_bg'])
+                frame.pack(side="left")
+                tk.Label(frame, text="Exit through ", bg=COLORS['sidebar_bg'],
+                         fg=COLORS['node_text'], font=self.fonts['step']).pack(side="left")
+                tk.Label(frame, text=step, bg=COLORS['sidebar_bg'],
+                         fg=COLORS['exit_green'], font=self.fonts['finish']).pack(side="left")
             else:
-                tk.Label(row, text=txt or f"Proceed to {node_name}",
-                         bg=COL_PANEL_BG, fg=COL_NODE_TEXT,
-                         font=self.f_step).pack(side="left")
+                if "Stairs" in step:
+                    text = "Take stairs"
+                elif "Hallway" in step or "Corridor" in step or "Spine" in step:
+                    text = "Continue straight"
+                else:
+                    text = f"Go to {step}"
+                tk.Label(row, text=text, bg=COLORS['sidebar_bg'],
+                         fg=COLORS['node_text'], font=self.fonts['step']).pack(side="left")
 
         if self.incidents:
-            inames = ", ".join(NODES[n][0] for n in self.incidents)
-            self.bot_warn_lbl.config(text=f"⚠  {inames} is blocked")
+            blocked = ", ".join(NODES[n][0] for n in self.incidents)
+            self.block_warn.config(text=f"⚠ Blocked: {blocked}")
         else:
-            self.bot_warn_lbl.config(text="")
+            self.block_warn.config(text="")
 
-    # ── Log ───────────────────────────────────────────────────────
-    def _log(self, segments):
+    def _log(self, msg, tag):
         self.log.config(state="normal")
-        self.log.delete("1.0", "end")
-        for text, tag in segments:
-            if tag:
-                self.log.insert("end", text, tag)
-            else:
-                self.log.insert("end", text)
+        self.log.insert("end", msg + "\n", tag)
+        self.log.see("end")
         self.log.config(state="disabled")
 
 
 if __name__ == "__main__":
     root = tk.Tk()
-    App(root)
+    app = EvacuationApp(root)
     root.mainloop()
