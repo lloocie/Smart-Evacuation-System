@@ -4,19 +4,25 @@ French University in Armenia · Faculty of Computer Science and Applied Mathemat
 
 > A B2B safety platform that computes real-time personalised evacuation routes
 > for large multi-story buildings using BLE beacon positioning and graph-based
-> BFS pathfinding — all backed by a fully normalised SQL Server database.
+> Dijkstra’s Algorithm pathfinding — all backed by a fully normalised SQL Server database.
 
 ---
 
 ## 📖 Table of Contents
 
 - [Overview](#overview)
+- [Project Goals](#project-goals)
+- [Core Idea](#core-idea)
+- [Technologies Used](#technologies-used)
 - [Project Structure](#project-structure)
-- [System Architecture](#system-architecture)
-- [Algorithm Demo](#algorithm-demo)
-- [Database](#database)
+- [How the System Works](#how-the-system-works)
+- [Algorithms & Data Structures](#algorithms--data-structures)
+- [Database Overview](#database-overview)
 - [How to Run](#how-to-run)
-- [Authors](#authors)
+- [Team Members](#team-members)
+- [What We Delivered](#what-we-delivered)
+- [Conclusion](#conclusion)
+- [Repository](#repository)
 
 ---
 
@@ -30,7 +36,7 @@ are blocked by fire or hazards. Existing static signage cannot adapt in real tim
 
 - **BLE beacon indoor positioning** — detects which floor and zone a user is in
 - **Graph-based building model** — every room, hallway, and exit is a node
-- **BFS pathfinding** — computes the shortest safe route to the nearest open exit
+- **Dijkstra’s Algorithm pathfinding** — computes the shortest safe route to the nearest open exit
 - **SQL Server database** — stores buildings, incidents, routes, and audit logs
 - **Python desktop simulator** — visualises the algorithm on a live floor map
 
@@ -55,16 +61,14 @@ FLOCK/
 │
 ├── 📁 algorithm/                   ← Python BFS/DFS visualiser
 │   ├── main.py                     ← Tkinter GUI application
-│   ├── algorithms.py               ← BFS + DFS implementations
+│   ├── algorithms.py               ← Dijkstra’s Algorithm implementations
 │   └── building.py                 ← Floor graph (nodes, edges, exits)
+│   └── building2.py                ← Floor graph (nodes, edges, exits) (Other floor plan)
 │
-├── 📁 mvp/                         ← Hardware prototype
-│   ├── 📁 tinkercad/               ← Circuit design (BLE beacon simulation)
-│   └── 📁 photos/                  ← Prototype photos
 │
-├── 📁 presentation/                      ← Full academic report (PDF)
-│   └── report_final.pdf
-│   └── FLOCK.pdf
+├── 📁 presentation/                ← Full academic report (PDF)
+│   └── Database_Project.pdf        ← Presentation (database)
+│   └── Evacuation_Management_System_Report.pdf
 │
 └── README.md
 ```
@@ -88,19 +92,31 @@ SQL Server Database
       │
       │  fetch active incident + available exits
       ▼
-BFS Routing Engine
+Dijkstra’s Algorithm
       │
       │  shortest safe path → ordered RouteStep records
       ▼
 Step-by-step guidance displayed to user
 ```
 
-**Core database tables:** `BUILDING` → `FLOOR` → `ZONE` → `BEACON` → `EXIT_POINT`
-→ `INCIDENT` → `EVACUATION_ROUTE` → `ROUTE_STEP` → `USER_LOCATION` + graph (`NODE`, `EDGE`)
+## 💾 Database Overview
 
-All 15 tables are fully normalised to **3NF** with enforced foreign keys,
-check constraints, triggers, and role-based access control.
+The system includes a fully normalized relational database:
 
+- **15 tables**
+- Covers:
+  - Buildings, floors, zones
+  - Beacons and user locations
+  - Incidents and evacuation routes
+
+### Features
+- Stored procedures for routing and logging
+- Triggers for enforcing safety rules
+- Indexes for performance optimization
+- Role-based access control:
+  - `evac_admin`
+  - `evac_occupant`
+  - `evac_readonly`
 ---
 
 ## Algorithm Demo
@@ -113,32 +129,10 @@ visually demonstrates the BFS pathfinding engine on a sample office floor.
 | Action | Result |
 |--------|--------|
 | Click any room | Places your position pin |
-| **Run BFS** | Highlights the shortest safe path to the nearest exit in orange |
+| **Find Route** | Highlights the shortest safe path to the nearest exit in orange |
 | **Add Incident** | Marks a room as blocked (red) and forces BFS to reroute |
 | **Reset** | Clears all state |
 
-### Algorithms implemented
-
-**BFS — Breadth-First Search** (`algorithms.py`)
-- Finds the **shortest path** (fewest hops) from the user's position to the nearest available exit
-- Time complexity: **O(N + E)**  ·  Space complexity: **O(N + E)**
-- Used for primary evacuation routing
-
-### Requirements
-
-```
-Python 3.8+
-tkinter (included in standard Python on Windows/macOS)
-```
-
-### Run the visualiser
-
-```bash
-cd algorithm
-python main.py
-```
-
----
 
 ## Database
 
@@ -199,8 +193,8 @@ python main.py
 | Name | Role |
 |------|------|
 | Lusine Stepanyan    | Database design, physical implementation, algorithm |
-| Elen Yeghiazaryan   | Conceptual & logical design, normalisation |
-| Melanya Martirosyan | Physical implementation, MVP hardware design, UML diagrams |
+| Elen Yeghiazaryan   | Conceptual & logical design, normalisation, |
+| Melanya Martirosyan | Physical implementation, MVP design, UML diagrams |
 
-**Supervisor:** Varazdat Avetisyan, PhD
+**Supervisor:** Varazdat Avetisyan PhD, Ghevond Gevorgyan 
 **French University in Armenia** · April 2026
