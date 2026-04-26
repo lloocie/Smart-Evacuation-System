@@ -11,18 +11,13 @@ French University in Armenia · Faculty of Computer Science and Applied Mathemat
 ## 📖 Table of Contents
 
 - [Overview](#overview)
-- [Project Goals](#project-goals)
-- [Core Idea](#core-idea)
-- [Technologies Used](#technologies-used)
 - [Project Structure](#project-structure)
-- [How the System Works](#how-the-system-works)
-- [Algorithms & Data Structures](#algorithms--data-structures)
-- [Database Overview](#database-overview)
+- [System Architecture](#system-architecture)
+- [Database Overview](#-database-overview)
+- [Algorithm Demo](#algorithm-demo)
+- [Database](#database)
 - [How to Run](#how-to-run)
-- [Team Members](#team-members)
-- [What We Delivered](#what-we-delivered)
-- [Conclusion](#conclusion)
-- [Repository](#repository)
+- [Authors](#authors)
 
 ---
 
