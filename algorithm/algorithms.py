@@ -1,64 +1,60 @@
+import heapq
 
-from collections import deque
+# ─── Graph Construction ───────────────────────────────────────────────────────
 
-def build_graph(edges):
-    graph = {}
-    for a, b in edges:
-        graph.setdefault(a, set()).add(b)
-        graph.setdefault(b, set()).add(a)
-    return graph
+def build_weighted_graph(edges_weighted):
+    adj = {}
+    weights = {}
 
+    for u, v, w in edges_weighted:
+        if u not in adj:
+            adj[u] = set()
+        if v not in adj:
+            adj[v] = set()
 
-# BFS — shortest path to nearest exit
-# Time O(N+E)  Memory O(N+E)
-def bfs(start, graph, exits):
+        adj[u].add(v)
+        adj[v].add(u)
+
+        key = (min(u, v), max(u, v))
+        weights[key] = w
+
+    return adj, weights
+
+# ─── Pathfinding ──────────────────────────────────────────────────────────────
+
+def dijkstra_shortest_path(start, graph, edge_weights, exits, blocked):
+
+    if start in blocked:
+        return None
+
+    pq = [(0.0, start)]
+    dist = {start: 0.0}
+    parent = {start: None}
     visited = set()
-    parent  = {start: None}
-    q       = deque([start])
 
-    while q:
-        curr = q.popleft()
-        if curr in visited:
+    while pq:
+        d, u = heapq.heappop(pq)
+        if u in visited:
             continue
-        visited.add(curr)
+        visited.add(u)
 
-        if curr in exits:
-            path, node = [], curr
+        if u in exits:
+            path = []
+            node = u
             while node is not None:
                 path.append(node)
                 node = parent[node]
             return list(reversed(path))
 
-        for nb in graph.get(curr, set()):
-            if nb not in visited:
-                parent.setdefault(nb, curr)
-                q.append(nb)
+        for v in graph.get(u, set()):
+            if v in blocked or v in visited:
+                continue
+            key = (min(u, v), max(u, v))
+            w = edge_weights.get(key, 1.0)
+            nd = d + w
+            if v not in dist or nd < dist[v]:
+                dist[v] = nd
+                parent[v] = u
+                heapq.heappush(pq, (nd, v))
 
     return None
-
-
-# DFS — find all paths to any exit
-# Time O(N+E)  Memory O(N)
-def _dfs(node, graph, exits, visited, parent, paths):
-    if node in visited:
-        return
-    visited.add(node)
-
-    if node in exits:
-        path, cur = [], node
-        while cur is not None:
-            path.append(cur)
-            cur = parent[cur]
-        paths.append(list(reversed(path)))
-        return
-
-    for nb in graph.get(node, set()):
-        if nb not in visited:
-            parent[nb] = node
-            _dfs(nb, graph, exits, visited, parent, paths)
-
-
-def dfs(start, graph, exits):
-    paths = []
-    _dfs(start, graph, exits, set(), {start: None}, paths)
-    return paths
