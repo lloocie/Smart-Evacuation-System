@@ -1,4 +1,4 @@
-# 🚨 FLOCK — Smart Evacuation Navigation System
+i# 🚨 FLOCK — Smart Evacuation Navigation System
 
 French University in Armenia · Faculty of Computer Science and Applied Mathematics
 
@@ -59,7 +59,7 @@ FLOCK/
 │   ├── algorithms.py               ← Dijkstra’s Algorithm implementations
 │   └── building.py                 ← Floor graph (nodes, edges, exits)
 │   └── building2.py                ← Floor graph (nodes, edges, exits) (Other floor plan)
-│
+│   └── DataStructures_Report.pdf   ← Final Report with all requirements
 │
 ├── 📁 presentation/                ← Full academic report (PDF)
 │   └── Database_Project.pdf        ← Presentation (database)
@@ -187,9 +187,9 @@ python main.py
 
 | Name | Role |
 |------|------|
-| Lusine Stepanyan    | Database design, physical implementation, algorithm |
-| Elen Yeghiazaryan   | Conceptual & logical design, normalisation, |
-| Melanya Martirosyan | Physical implementation, MVP design, UML diagrams |
+| Lusine Stepanyan    |Implementation of  algorithms.py (Details are in the report) //  Database design, physical implementation, algorithm |
+| Elen Yeghiazaryan   |Implementation of building.py/building2.py (Details are in the report) // Conceptual & logical design, normalisation |
+| Melanya Martirosyan |Implementation of main.py (Details are in the report) // Physical implementation, MVP design, UML diagrams |
 
 **Supervisor:** Varazdat Avetisyan PhD, Ghevond Gevorgyan 
 **French University in Armenia** · April 2026
