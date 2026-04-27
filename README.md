@@ -1,4 +1,4 @@
-i# 🚨 FLOCK — Smart Evacuation Navigation System
+# 🚨 FLOCK — Smart Evacuation Navigation System
 
 French University in Armenia · Faculty of Computer Science and Applied Mathematics
 
