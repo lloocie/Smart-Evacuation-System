@@ -189,7 +189,7 @@ python main.py
 |------|------|
 | Lusine Stepanyan    |Implementation of  algorithms.py (Details are in the report) //  Database design, physical implementation, algorithm |
 | Elen Yeghiazaryan   |Implementation of building.py/building2.py (Details are in the report) // Conceptual & logical design, normalisation |
-| Melanya Martirosyan |Implementation of main.py (Details are in the report) // Physical implementation, MVP design, UML diagrams |
+| Melanya Martirosyan  |Implementation of main.py (Details are in the report) // Physical implementation, MVP design, UML diagrams |
 
 **Supervisor:** Varazdat Avetisyan PhD, Ghevond Gevorgyan 
 
