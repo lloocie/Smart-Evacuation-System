@@ -192,4 +192,5 @@ python main.py
 | Melanya Martirosyan |Implementation of main.py (Details are in the report) // Physical implementation, MVP design, UML diagrams |
 
 **Supervisor:** Varazdat Avetisyan PhD, Ghevond Gevorgyan 
+
 **French University in Armenia** · April 2026
